@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f5ef" />
+    <title>Daybook · Work tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="vendor/supabase.js"></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="shell bar">
+        <a class="brand" href="#dashboard" aria-label="Daybook dashboard"
+          ><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span
+          >Daybook</a
+        >
+        <nav hidden aria-label="Workspace">
+          <a href="#dashboard">Overview</a><a href="#history">History</a
+          ><a href="#reports">Reports</a><a href="#settings">Settings</a>
+        </nav>
+        <button id="signout" class="quiet" hidden>Sign out</button>
+      </div>
+    </header>
+    <main class="shell">
+      <div id="notice" role="status" hidden></div>
+      <section id="view" aria-label="Workspace">
+        <p>Opening workspace…</p>
+      </section>
+    </main>
+    <dialog id="dialog">
+      <div class="dialog-head">
+        <strong id="dialog-title"></strong
+        ><button id="close" class="quiet" aria-label="Close dialog">
+          Close ×
+        </button>
+      </div>
+      <div id="dialog-body"></div>
+    </dialog>
+    <footer class="shell">
+      <span>Daybook</span><span>Asia/Kolkata · IST</span>
+    </footer>
+  </body>
+</html>
