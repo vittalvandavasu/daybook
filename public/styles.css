@@ -567,3 +567,76 @@ pre {
     display: table-header-group;
   }
 }
+
+.own-panel {
+  border-top: 3px solid var(--green);
+}
+.session-context {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  margin: 0 0 0.75rem;
+}
+.quick-start {
+  margin-top: 1rem;
+}
+.quick-start h3,
+.week-review h3 {
+  font-size: 0.9rem;
+  margin-bottom: 0.55rem;
+}
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0.5rem;
+}
+.quick-action {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 0.1rem;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  text-align: left;
+}
+.quick-caption {
+  font-size: 0.8rem;
+  color: var(--green);
+}
+.week-review .metrics {
+  margin-bottom: 1rem;
+}
+.week-days {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.week-days li {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 5.4rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+.week-days [aria-current="date"] .week-label {
+  color: var(--green);
+  font-weight: bold;
+}
+.week-track {
+  display: block;
+  height: 0.45rem;
+  border-radius: 1rem;
+  background: var(--mint);
+  overflow: hidden;
+}
+.week-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+.week-time {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

@@ -78,15 +78,19 @@ let db,
 let page = "dashboard",
   range = { from: "", to: "", period: "month", person: "", group: "day" };
 let records = [];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const now = () => (anchor ? anchor + (performance.now() - clock) : Date.now());
 const today = () => dayAt(now());
+function monday(day) {
+  const weekday = new Date(day + "T00:00:00Z").getUTCDay();
+  return shiftDay(day, -((weekday + 6) % 7));
+}
 const resetPeriod = (p) => {
   const day = today();
   let from = day,
     to = day;
   if (p === "week") {
-    const d = new Date(day + "T00:00:00Z").getUTCDay();
-    from = shiftDay(day, -((d + 6) % 7));
+    from = monday(day);
     to = shiftDay(from, 6);
   }
   if (p === "month") {
@@ -135,6 +139,46 @@ const summary = (rows, title) =>
 function detailFields() {
   return `<details id="details" ${detailsOpen ? "open" : ""}><summary>Session details</summary><div class="grid"><label>Activity<select name="category">${opt("", "No category", draft.category)}${categories.map((c) => opt(c, c, draft.category)).join("")}</select></label>${field("Client", "client", "text", draft.client)}${field("Project", "project", "text", draft.project)}${field("Meeting title", "title", "text", draft.title)}${field("Meeting URL", "url", "url", draft.url)}<label class="wide">Work notes<textarea name="notes">${esc(draft.notes)}</textarea></label></div></details>`;
 }
+// Reuse classification only. Notes and meeting links belong to the original session.
+function recentWork() {
+  const presets = new Map();
+  for (const session of data.sessions) {
+    if (session.user_id !== user.id || !session.ended_at) continue;
+    const { project = "", client = "", category = "" } = session.details || {};
+    if (!project && !client && !category) continue;
+    const key = JSON.stringify([project, client, category]);
+    if (!presets.has(key))
+      presets.set(key, {
+        id: session.id,
+        label: project || client || category,
+        context: [project && client, (project || client) && category]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    if (presets.size === 4) break;
+  }
+  return [...presets.values()];
+}
+function quickStart() {
+  const presets = recentWork();
+  if (!presets.length) return "";
+  return `<div class="quick-start"><h3>Repeat recent work</h3><div class="quick-actions">${presets.map(({ id, label, context }) => `<button class="btn quick-action" name="action" value="start" data-repeat="${esc(id)}"><strong>${esc(label)}</strong>${context ? `<small>${esc(context)}</small>` : ""}<span class="quick-caption">Start session</span></button>`).join("")}</div></div>`;
+}
+function weekReview() {
+  const day = today();
+  const start = monday(day);
+  const days = WEEKDAYS.map((label, index) => {
+    const date = shiftDay(start, index);
+    return {
+      label,
+      date,
+      seconds: totals(data.days.filter((row) => row.day === date)).work,
+    };
+  });
+  const max = Math.max(...days.map((item) => item.seconds), 1);
+  const week = data.days.filter((row) => row.day >= start && row.day <= day);
+  return `<section class="summary week-review"><div class="row"><div><h2>This week</h2><p class="sub">${esc(prettyDate(start))} – ${esc(prettyDate(shiftDay(start, 6)))}</p></div><button class="link" type="button" data-do="week-report">Weekly report</button></div><div class="metrics">${metrics(totals(week))}</div><h3>Team working time by day</h3><ul class="week-days">${days.map(({ label, date, seconds }) => `<li${date === day ? ' aria-current="date"' : ""}><span class="week-label">${label}</span><span class="week-track" aria-hidden="true"><span style="width:${Math.round((seconds / max) * 100)}%"></span></span><span class="week-time">${date > day ? "—" : duration(seconds)}</span></li>`).join("")}</ul></section>`;
+}
 function dashboard() {
   const ds = data.days.filter((d) => d.day === today());
   const panels = [...data.profiles]
@@ -150,13 +194,19 @@ function dashboard() {
         : s
           ? ["Take a break", "break"]
           : ["Start work", "start"];
-      return `<section class="panel"><div class="row"><div class="person"><span class="initial">${esc(p.name[0])}</span><div><b>${esc(p.name)}</b>${own ? "<div><small>Your workspace</small></div>" : ""}</div></div><span class="status ${br ? "break" : s ? "working" : ""}">${status}</span></div><div class="timer-label">${br ? "Current break" : "Session working time"}</div><div class="timer" data-timer="${esc(p.id)}">00:00:00</div>${own ? `<form id="clock-form" data-session="${esc(s?.id || "")}" data-revision="${esc(s?.revision || 0)}"><div class="actions"><button class="btn primary clock" name="action" value="${action[1]}">${action[0]}</button>${s ? '<button class="btn" name="action" value="stop">Clock out</button>' : ""}</div>${s ? "" : detailFields()}</form>` : ""}<div class="metrics">${metrics(t, p.currency)}${metric("Completed sessions", t.count)}</div></section>`;
+      const context = s
+        ? [s.details?.project, s.details?.client, s.details?.category]
+            .filter(Boolean)
+            .join(" · ")
+        : "";
+      return `<section class="panel ${own ? "own-panel" : ""}"><div class="row"><div class="person"><span class="initial">${esc(p.name[0])}</span><div><b>${esc(p.name)}</b>${own ? "<div><small>Your workspace</small></div>" : ""}</div></div><span class="status ${br ? "break" : s ? "working" : ""}">${status}</span></div><div class="timer-label">${br ? "Current break" : "Session working time"}</div><div class="timer" data-timer="${esc(p.id)}">00:00:00</div>${context ? `<p class="session-context">${esc(context)}</p>` : ""}${own ? `<form id="clock-form" data-session="${esc(s?.id || "")}" data-revision="${esc(s?.revision || 0)}"><div class="actions"><button class="btn primary clock" name="action" value="${action[1]}">${action[0]}</button>${s ? '<button class="btn" name="action" value="stop">Clock out</button>' : ""}</div>${s ? "" : detailFields() + quickStart()}</form>` : ""}<div class="metrics">${metrics(t, p.currency)}${metric("Completed sessions", t.count)}</div></section>`;
     })
     .join("");
   view.innerHTML =
     heading("Workspace overview", prettyDate(today()) + " · Today") +
     `<div class="panels">${panels}</div>` +
-    summary(ds, "Team totals") +
+    summary(ds, "Today’s team totals") +
+    weekReview() +
     `<div class="row sectionhead"><h2>Today’s sessions</h2><a href="#history" class="link">View history</a></div>` +
     historyTable(
       data.sessions
@@ -339,9 +389,10 @@ function setNav() {
   }
 }
 function periodArgs() {
-  return page === "dashboard" || page === "settings"
-    ? { p_from: today(), p_to: today() }
-    : { p_from: range.from, p_to: range.to };
+  if (page === "dashboard")
+    return { p_from: shiftDay(today(), -29), p_to: today() };
+  if (page === "settings") return { p_from: today(), p_to: today() };
+  return { p_from: range.from, p_to: range.to };
 }
 async function rpc(fn, args) {
   const { data, error } = await db.rpc(fn, args);
@@ -365,7 +416,7 @@ async function refresh(silent = false) {
     clock = performance.now();
     if (
       (where === "dashboard" || where === "settings") &&
-      today() !== args.p_from
+      today() !== args.p_to
     ) {
       await refresh();
       return;
@@ -541,6 +592,12 @@ document.addEventListener("click", (e) => {
     case "retry":
       refresh();
       break;
+    case "week-report":
+      resetPeriod("week");
+      range.person = "";
+      range.group = "day";
+      location.hash = "#reports";
+      break;
   }
 });
 document.addEventListener("input", (e) => {
@@ -591,17 +648,34 @@ document.addEventListener("submit", async (e) => {
       Object.assign(range, values);
       await refresh();
     } else if (f.id === "clock-form") {
-      const action = button.value;
+      const action = button?.value || f.querySelector(".clock").value;
+      let details = {};
+      if (action === "start") {
+        if (button?.dataset.repeat) {
+          const previous = data.sessions.find(
+            (s) =>
+              s.id === button.dataset.repeat &&
+              s.user_id === user.id &&
+              s.ended_at,
+          );
+          if (!previous)
+            throw Error(
+              "That recent session is unavailable. Refresh and try again.",
+            );
+          const { project, client, category } = previous.details || {};
+          details = { project, client, category };
+        } else {
+          details = draft;
+        }
+        details = Object.fromEntries(
+          Object.entries(details).filter(([, value]) => value?.trim()),
+        );
+      }
       await rpc("act", {
         p_action: action,
         p_id: f.dataset.session || crypto.randomUUID(),
         p_revision: Number(f.dataset.revision),
-        p_details:
-          action === "start"
-            ? Object.fromEntries(
-                Object.entries(draft).filter(([, v]) => v.trim()),
-              )
-            : {},
+        p_details: details,
       });
       if (action === "start") {
         draft = {};
